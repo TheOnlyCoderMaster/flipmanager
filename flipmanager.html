@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlipManager — Flipper Zero Web Manager</title>
+<style>
+  :root {
+    --orange: #FF6B00;
+    --orange-dim: #cc5500;
+    --orange-glow: #ff8c00;
+    --bg: #0a0a0a;
+    --panel: #111111;
+    --border: #1e1e1e;
+    --border-active: #333;
+    --text: #e8e8e0;
+    --muted: #666;
+    --green: #39d353;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --mono: 'Courier New', Courier, monospace;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.3px;
+    color: var(--orange);
+    text-decoration: none;
+  }
+
+  .logo svg { flex-shrink: 0; }
+
+  .logo span { color: var(--text); font-weight: 400; font-size: 13px; margin-left: 4px; opacity: 0.5; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  /* ── Connect button ── */
+  #connect-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    background: var(--orange);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  #connect-btn:hover { background: var(--orange-glow); transform: translateY(-1px); }
+  #connect-btn:active { transform: translateY(0); }
+  #connect-btn.connected { background: #1a2a1a; color: var(--green); border: 1px solid #2a4a2a; }
+  #connect-btn.connected:hover { background: #1f2f1f; }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  /* ── Status bar ── */
+  #status-bar {
+    padding: 6px 24px;
+    background: #0d0d0d;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #status-bar .tag {
+    background: var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--orange);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Layout ── */
+  .main-layout {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - 89px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    padding: 4px 16px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 0;
+    font-size: 13px;
+    color: var(--muted);
+    transition: background 0.1s, color 0.1s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .sidebar-item:hover { background: var(--border); color: var(--text); }
+  .sidebar-item.active { color: var(--orange); background: rgba(255,107,0,0.08); }
+  .sidebar-item .icon { font-size: 16px; flex-shrink: 0; }
+
+  /* ── File panel ── */
+  .file-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-wrap: wrap;
+  }
+
+  .breadcrumb {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--orange);
+    padding: 6px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--border);
+    border: 1px solid var(--border-active);
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--sans);
+    transition: background 0.1s;
+    flex-shrink: 0;
+  }
+  .toolbar-btn:hover { background: var(--border-active); }
+  .toolbar-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .toolbar-btn.danger:hover { background: rgba(248,81,73,0.15); color: var(--red); border-color: var(--red); }
+  .toolbar-btn.primary { background: var(--orange); color: #000; border-color: var(--orange-dim); font-weight: 600; }
+  .toolbar-btn.primary:hover { background: var(--orange-glow); }
+
+  /* ── Drop zone ── */
+  #drop-zone {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    transition: background 0.15s;
+  }
+  #drop-zone.drag-over {
+    background: rgba(255,107,0,0.05);
+    outline: 2px dashed var(--orange);
+    outline-offset: -8px;
+  }
+
+  .drop-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #drop-zone.drag-over .drop-hint { opacity: 1; }
+  .drop-hint .big-icon { font-size: 48px; }
+  .drop-hint p { color: var(--orange); font-weight: 600; }
+
+  /* ── File list ── */
+  #file-list {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #file-list thead th {
+    text-align: left;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: #0d0d0d;
+    position: sticky;
+    top: 0;
+  }
+
+  #file-list tbody tr {
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.08s;
+  }
+  #file-list tbody tr:hover { background: rgba(255,255,255,0.03); }
+  #file-list tbody tr.selected { background: rgba(255,107,0,0.08); }
+
+  #file-list td {
+    padding: 9px 16px;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+
+  .file-icon { font-size: 16px; margin-right: 8px; }
+  .file-name { display: flex; align-items: center; }
+  .file-name a { color: var(--blue); text-decoration: none; }
+  .file-name a:hover { text-decoration: underline; }
+  .file-size { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .file-date { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    gap: 16px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .empty-state .big { font-size: 48px; }
+  .empty-state h3 { color: var(--text); font-size: 16px; font-weight: 600; }
+  .empty-state p { font-size: 13px; max-width: 360px; line-height: 1.6; }
+
+  /* ── Progress panel ── */
+  #transfer-panel {
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    display: none;
+  }
+  #transfer-panel.active { display: block; }
+
+  .transfer-header {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .transfer-list { max-height: 150px; overflow-y: auto; padding: 8px 20px; }
+
+  .transfer-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .transfer-item:last-child { border: none; }
+
+  .transfer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .transfer-status { flex-shrink: 0; font-family: var(--mono); font-size: 11px; }
+  .transfer-status.ok { color: var(--green); }
+  .transfer-status.err { color: var(--red); }
+  .transfer-status.pending { color: var(--orange); }
+
+  progress {
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    accent-color: var(--orange);
+  }
+
+  /* ── AI Assistant panel ── */
+  #ai-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ai-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ai-title {
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--blue);
+  }
+
+  .ai-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(88,166,255,0.12);
+    color: var(--blue);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  #ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .msg {
+    max-width: 90%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: rgba(255,107,0,0.15);
+    border: 1px solid rgba(255,107,0,0.25);
+    color: var(--text);
+  }
+
+  .msg.ai {
+    align-self: flex-start;
+    background: var(--border);
+    border: 1px solid var(--border-active);
+    color: var(--text);
+  }
+
+  .msg.ai code {
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--orange);
+  }
+
+  .ai-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ai-input-row input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-active);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+    font-family: var(--sans);
+  }
+  .ai-input-row input:focus { border-color: var(--orange); }
+
+  .ai-input-row button {
+    padding: 8px 14px;
+    background: var(--orange);
+    border: none;
+    border-radius: 8px;
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+  }
+  .ai-input-row button:hover { background: var(--orange-glow); }
+
+  /* ── Context menu ── */
+  #ctx-menu {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--border-active);
+    border-radius: 8px;
+    padding: 4px;
+    min-width: 150px;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  .ctx-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 5px;
+    color: var(--text);
+    transition: background 0.1s;
+  }
+  .ctx-item:hover { background: var(--border-active); }
+  .ctx-item.danger { color: var(--red); }
+  .ctx-item.danger:hover { background: rgba(248,81,73,0.1); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border-active);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 360px;
+    max-width: 500px;
+    width: 100%;
+  }
+
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+
+  .modal input, .modal textarea {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-active);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--sans);
+    outline: none;
+  }
+  .modal input:focus, .modal textarea:focus { border-color: var(--orange); }
+  .modal textarea { resize: vertical; min-height: 100px; }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  .modal-actions button {
+    padding: 8px 20px;
+    border-radius: 7px;
+    border: 1px solid var(--border-active);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--sans);
+  }
+
+  .btn-cancel { background: var(--border); color: var(--text); }
+  .btn-cancel:hover { background: var(--border-active); }
+  .btn-ok { background: var(--orange); color: #000; border-color: var(--orange-dim); font-weight: 600; }
+  .btn-ok:hover { background: var(--orange-glow); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-active); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════ HEADER ═══════ -->
+<header>
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#FF6B00"/>
+      <rect x="5" y="8" width="18" height="3" rx="1.5" fill="#000"/>
+      <rect x="5" y="13" width="12" height="3" rx="1.5" fill="#000"/>
+      <rect x="5" y="18" width="15" height="3" rx="1.5" fill="#000"/>
+    </svg>
+    FlipManager <span>v1.0</span>
+  </div>
+  <div class="header-right">
+    <div id="device-info" style="font-size:12px;color:var(--muted);display:none"></div>
+    <button id="connect-btn" onclick="connectFlipper()">
+      <span class="dot"></span> Connect Flipper
+    </button>
+  </div>
+</header>
+
+<!-- ═══════ STATUS BAR ═══════ -->
+<div id="status-bar">
+  <span class="tag">SERIAL</span>
+  <span id="status-text">Not connected — click Connect Flipper to begin</span>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div class="main-layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Storage</div>
+      <button class="sidebar-item active" onclick="navTo('/ext')">
+        <span class="icon">💾</span> SD Card (/ext)
+      </button>
+      <button class="sidebar-item" onclick="navTo('/int')">
+        <span class="icon">🔒</span> Internal (/int)
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Quick access</div>
+      <button class="sidebar-item" onclick="navTo('/ext/subghz')">
+        <span class="icon">📡</span> Sub-GHz saves
+      </button>
+      <button class="sidebar-item" onclick="navTo('/ext/infrared')">
+        <span class="icon">🔴</span> Infrared saves
+      </button>
+      <button class="sidebar-item" onclick="navTo('/ext/nfc')">
+        <span class="icon">📶</span> NFC saves
+      </button>
+      <button class="sidebar-item" onclick="navTo('/ext/lfrfid')">
+        <span class="icon">🏷️</span> RFID saves
+      </button>
+      <button class="sidebar-item" onclick="navTo('/ext/badusb')">
+        <span class="icon">⌨️</span> BadUSB scripts
+      </button>
+      <button class="sidebar-item" onclick="navTo('/ext/apps')">
+        <span class="icon">📦</span> Apps (.fap)
+      </button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tools</div>
+      <button class="sidebar-item" onclick="uploadFiles()">
+        <span class="icon">⬆️</span> Upload files
+      </button>
+      <button class="sidebar-item" onclick="createNewFile()">
+        <span class="icon">📄</span> New file
+      </button>
+      <button class="sidebar-item" onclick="createFolder()">
+        <span class="icon">📁</span> New folder
+      </button>
+    </div>
+  </nav>
+
+  <!-- File panel -->
+  <div class="file-panel">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="toolbar-btn" onclick="goBack()" id="btn-back" title="Go back" disabled>← Back</button>
+      <button class="toolbar-btn" onclick="goUp()" id="btn-up" title="Go up">⬆ Up</button>
+      <button class="toolbar-btn" onclick="refreshDir()" title="Refresh">↻ Refresh</button>
+      <div class="breadcrumb" id="breadcrumb">/ext</div>
+      <button class="toolbar-btn" onclick="uploadFiles()" title="Upload files">⬆ Upload</button>
+      <button class="toolbar-btn primary" onclick="createNewFile()">+ New file</button>
+    </div>
+
+    <!-- Drop zone -->
+    <div id="drop-zone"
+         ondragover="onDragOver(event)"
+         ondragleave="onDragLeave(event)"
+         ondrop="onDrop(event)">
+
+      <div class="drop-hint">
+        <div class="big-icon">📂</div>
+        <p>Drop files here to upload to Flipper</p>
+      </div>
+
+      <div id="file-list-wrapper">
+        <div class="empty-state" id="empty-state">
+          <div class="big">🐬</div>
+          <h3>Connect your Flipper Zero</h3>
+          <p>Click the <strong>Connect Flipper</strong> button above, then select the Flipper's USB serial port to browse files. Drop files anywhere to upload.</p>
+        </div>
+        <table id="file-list" style="display:none">
+          <thead>
+            <tr>
+              <th style="width:60%">Name</th>
+              <th style="width:15%">Size</th>
+              <th style="width:25%">Type</th>
+            </tr>
+          </thead>
+          <tbody id="file-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Transfer progress -->
+    <div id="transfer-panel">
+      <div class="transfer-header">
+        <span>Transfers</span>
+        <button class="toolbar-btn" style="padding:3px 10px;font-size:11px" onclick="clearTransfers()">Clear</button>
+      </div>
+      <div class="transfer-list" id="transfer-list"></div>
+    </div>
+  </div>
+
+  <!-- AI assistant -->
+  <div id="ai-panel">
+    <div class="ai-header">
+      <div class="ai-title">
+        🤖 AI Assistant
+        <span class="ai-badge">Claude</span>
+      </div>
+    </div>
+    <div id="ai-messages">
+      <div class="msg ai">Hi! I can help with your Flipper Zero files. Ask me anything — "What is a .sub file?", "Write a BadUSB script", or "Explain NFC saves".</div>
+    </div>
+    <div class="ai-input-row">
+      <input type="text" id="ai-input" placeholder="Ask about your Flipper..." onkeydown="if(event.key==='Enter')sendAI()">
+      <button onclick="sendAI()">↑</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ CONTEXT MENU ═══════ -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxOpen()">📝 Open / Edit</div>
+  <div class="ctx-item" onclick="ctxDownload()">⬇ Download</div>
+  <div class="ctx-item" onclick="ctxRename()">✏️ Rename</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">🗑 Delete</div>
+</div>
+
+<!-- ═══════ MODALS ═══════ -->
+<div class="modal-overlay" id="modal-newfile">
+  <div class="modal">
+    <h3 id="newfile-title">New file or folder</h3>
+    <p id="newfile-hint" style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">
+      No extension = folder &nbsp;·&nbsp; Add <code style="color:var(--orange);background:rgba(255,107,0,0.1);padding:1px 5px;border-radius:3px">.txt</code>, <code style="color:var(--orange);background:rgba(255,107,0,0.1);padding:1px 5px;border-radius:3px">.sub</code>, etc. = file
+    </p>
+    <input type="text" id="newfile-name" placeholder="e.g. my_folder  or  notes.txt" style="margin-bottom:10px" oninput="onNewfileNameChange()">
+    <div id="newfile-type-badge" style="margin-bottom:10px;font-size:12px;display:none">
+      Creating: <span id="newfile-type-label" style="font-weight:600"></span>
+    </div>
+    <textarea id="newfile-content" placeholder="File content (optional)..." style="display:none"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-newfile')">Cancel</button>
+      <button class="btn-ok" id="newfile-ok-btn" onclick="confirmNewFile()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-rename">
+  <div class="modal">
+    <h3>Rename</h3>
+    <input type="text" id="rename-input" placeholder="New name">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-rename')">Cancel</button>
+      <button class="btn-ok" onclick="confirmRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ TEXT EDITOR MODAL ═══════ -->
+<div class="modal-overlay" id="modal-editor" style="align-items:stretch;padding:0">
+  <div style="display:flex;flex-direction:column;width:100%;height:100%;background:var(--panel)">
+    <!-- Editor header -->
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span id="editor-icon" style="font-size:18px">📄</span>
+      <span id="editor-filename" style="font-family:var(--mono);font-size:13px;color:var(--orange);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <span id="editor-status" style="font-size:11px;color:var(--muted);flex-shrink:0"></span>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="toolbar-btn" onclick="editorWordWrap()" id="btn-wrap" title="Toggle word wrap">↩ Wrap</button>
+        <button class="toolbar-btn primary" onclick="editorSave()" id="btn-save" disabled>💾 Save to Flipper</button>
+        <button class="toolbar-btn" onclick="closeModal('modal-editor')">✕ Close</button>
+      </div>
+    </div>
+    <!-- Line numbers + textarea -->
+    <div style="display:flex;flex:1;overflow:hidden;font-family:var(--mono);font-size:13px">
+      <div id="editor-lines" style="padding:12px 10px;text-align:right;color:var(--muted);background:#0d0d0d;border-right:1px solid var(--border);user-select:none;overflow:hidden;min-width:48px;line-height:1.6;flex-shrink:0;font-size:12px"></div>
+      <textarea id="editor-textarea"
+        spellcheck="false"
+        style="flex:1;padding:12px;background:var(--bg);color:var(--text);border:none;outline:none;resize:none;font-family:var(--mono);font-size:13px;line-height:1.6;tab-size:2;white-space:pre;overflow-wrap:normal;overflow-x:auto"
+        oninput="onEditorInput()"
+        onscroll="syncEditorScroll()"
+        onkeydown="onEditorKeydown(event)"
+      ></textarea>
+    </div>
+    <!-- Footer -->
+    <div style="padding:6px 20px;border-top:1px solid var(--border);display:flex;gap:20px;font-size:11px;color:var(--muted);flex-shrink:0">
+      <span id="editor-lines-count">0 lines</span>
+      <span id="editor-chars-count">0 chars</span>
+      <span id="editor-cursor-pos">Ln 1, Col 1</span>
+      <span style="margin-left:auto" id="editor-modified"></span>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" multiple style="display:none" onchange="handleFileInput(event)">
+
+<!-- ═══════ SCRIPTS ═══════ -->
+<script>
+/* ════════════════════════════════════════════
+   SERIAL / FLIPPER PROTOCOL
+   Flipper Zero RPC is over USB serial.
+   We use the human-readable CLI protocol that's
+   accessible without the full Protobuf RPC stack.
+   Commands: storage list, storage read, storage write,
+             storage mkdir, storage remove, storage rename
+   ════════════════════════════════════════════ */
+
+let port = null;
+let reader = null;
+let writer = null;
+let readBuf = '';
+let currentPath = '/ext';
+let selectedFile = null;
+let renameTarget = null;
+let navHistory = [];
+
+/* ─── Connect ─── */
+async function connectFlipper() {
+  if (port) {
+    await disconnectFlipper();
+    return;
+  }
+
+  if (!navigator.serial) {
+    setStatus('Web Serial API not supported. Use Chrome or Edge.', 'red');
+    addAIMsg('ai', '⚠️ Your browser doesn\'t support Web Serial. Please open this file in <code>Chrome</code> or <code>Edge</code>.');
+    return;
+  }
+
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 230400 });
+
+    const textDecoder = new TextDecoderStream();
+    port.readable.pipeTo(textDecoder.writable);
+    reader = textDecoder.readable.getReader();
+
+    const textEncoder = new TextEncoderStream();
+    textEncoder.readable.pipeTo(port.writable);
+    writer = textEncoder.writable.getWriter();
+
+    setStatus('Connected — loading directory...', 'green');
+    document.getElementById('connect-btn').textContent = '';
+    document.getElementById('connect-btn').innerHTML = '<span class="dot"></span> Disconnect';
+    document.getElementById('connect-btn').classList.add('connected');
+
+    // Flush any existing CLI prompt
+    await sendCmd('\r\n', 300);
+    refreshDir();
+    startReaderLoop();
+
+  } catch (e) {
+    setStatus('Connection failed: ' + e.message, 'red');
+    port = null;
+  }
+}
+
+async function disconnectFlipper() {
+  if (reader) { try { reader.cancel(); } catch {} reader = null; }
+  if (writer) { try { writer.close(); } catch {} writer = null; }
+  if (port) { try { await port.close(); } catch {} port = null; }
+  setStatus('Disconnected', '');
+  document.getElementById('connect-btn').innerHTML = '<span class="dot"></span> Connect Flipper';
+  document.getElementById('connect-btn').classList.remove('connected');
+  document.getElementById('device-info').style.display = 'none';
+  showEmpty();
+}
+
+/* ─── Low-level send ─── */
+async function sendCmd(cmd, waitMs = 600) {
+  if (!writer) return '';
+  await writer.write(cmd + '\r\n');
+  await sleep(waitMs);
+}
+
+/* ─── Reader loop — buffers serial data ─── */
+async function startReaderLoop() {
+  while (reader) {
+    try {
+      const { value, done } = await reader.read();
+      if (done) break;
+      readBuf += value;
+    } catch { break; }
+  }
+}
+
+/* ─── Flush buffer ─── */
+function flushBuf() {
+  const s = readBuf;
+  readBuf = '';
+  return s;
+}
+
+/* ─── Send command and capture response ─── 
+   Waits for the Flipper CLI prompt ">:" to appear,
+   which signals the command has fully completed.
+   Falls back to a max timeout so we never hang forever. */
+async function runCmd(cmd, maxWaitMs = 4000) {
+  if (!writer) { setStatus('Not connected', 'red'); return ''; }
+  flushBuf();
+  await writer.write(cmd + '\r\n');
+
+  const deadline = Date.now() + maxWaitMs;
+  // Poll the buffer every 80ms until we see the prompt or timeout
+  while (Date.now() < deadline) {
+    await sleep(80);
+    const buf = readBuf;
+    // Flipper CLI prompt is ">:" or ">\r\n>:" — check for it
+    if (buf.includes('>:') || buf.match(/>\s*\r?\n/)) {
+      // Give it one more tick so any trailing bytes arrive
+      await sleep(40);
+      break;
+    }
+  }
+  return flushBuf();
+}
+
+/* ─── Strip ANSI escape codes ─── */
+function stripAnsi(str) {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1B\[[0-9;]*[mGKHF]/g, '').replace(/\r/g, '');
+}
+
+/* ─── List directory ─── */
+async function listDir(path) {
+  const raw = await runCmd(`storage list ${path}`, 4000);
+  const clean = stripAnsi(raw);
+  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries = [];
+
+  for (const line of lines) {
+    // Skip the echoed command, prompts, and error lines
+    if (line.startsWith('>') || line.includes('storage list') ||
+        line.startsWith('Error') || line.startsWith('Storage')) continue;
+
+    // Format A: [D] dirname
+    const dirMatch = line.match(/^\[D\]\s+(.+)/);
+    if (dirMatch) { entries.push({ name: dirMatch[1].trim(), type: 'dir', size: 0 }); continue; }
+
+    // Format B: [F] 1234 filename  (with size)
+    const fileWithSize = line.match(/^\[F\]\s+(\d+)\s+(.+)/);
+    if (fileWithSize) { entries.push({ name: fileWithSize[2].trim(), type: 'file', size: parseInt(fileWithSize[1]) }); continue; }
+
+    // Format C: [F] filename  (no size — seen in some firmware versions)
+    const fileNoSize = line.match(/^\[F\]\s+(\S.+)/);
+    if (fileNoSize) { entries.push({ name: fileNoSize[1].trim(), type: 'file', size: 0 }); continue; }
+
+    // Format D: bare name with trailing /  (some system dirs output this)
+    const bareDir = line.match(/^(\S[^[\]]+)\/\s*$/);
+    if (bareDir) { entries.push({ name: bareDir[1].trim(), type: 'dir', size: 0 }); continue; }
+  }
+
+  // If we got nothing but there IS content, show a debug notice in status
+  if (entries.length === 0 && clean.length > 20) {
+    const preview = clean.replace(/\n/g,' ').slice(0, 120);
+    setStatus(`No entries parsed. Raw: ${preview}`, 'orange');
+  }
+
+  return entries;
+}
+
+/* ─── Download file ─── */
+async function downloadFile(path) {
+  setStatus(`Reading ${path}...`, 'orange');
+  const raw = await runCmd(`storage read ${path}`, 6000);
+  const clean = stripAnsi(raw);
+  const lines = clean.split('\n');
+  // Remove echoed command, CLI prompts (>:), and Flipper's "Size: N" header
+  const content = lines.filter(l =>
+    !l.includes('storage read') &&
+    !l.match(/^>:?\s*$/) &&
+    !l.match(/^Size:\s*\d+/)
+  ).join('\n').trim();
+  const blob = new Blob([content], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = path.split('/').pop();
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Downloaded: ${path.split('/').pop()}`, 'green');
+}
+
+/* ─── Upload file ─── */
+async function uploadFileToFlipper(remotePath, content) {
+  // Write file using storage write (feeds until EOF marker)
+  if (!writer) return false;
+  try {
+    await writer.write(`storage write ${remotePath}\r\n`);
+    await sleep(300);
+    // Write content in chunks
+    const chunkSize = 512;
+    for (let i = 0; i < content.length; i += chunkSize) {
+      await writer.write(content.slice(i, i + chunkSize));
+      await sleep(50);
+    }
+    // Send EOF (Ctrl+C ends the write)
+    await writer.write('\x03');
+    await sleep(400);
+    return true;
+  } catch (e) {
+    setStatus('Upload error: ' + e.message, 'red');
+    return false;
+  }
+}
+
+/* ─── Delete ─── */
+async function deleteEntry(path) {
+  await runCmd(`storage remove ${path}`, 800);
+}
+
+/* ─── Rename/move ─── */
+async function renameEntry(oldPath, newPath) {
+  await runCmd(`storage rename ${oldPath} ${newPath}`, 800);
+}
+
+/* ─── Mkdir ─── */
+async function mkdirEntry(path) {
+  await runCmd(`storage mkdir ${path}`, 600);
+}
+
+/* ════════════════════════════════════════════
+   UI — NAVIGATION
+   ════════════════════════════════════════════ */
+
+function navTo(path, addToHistory = true) {
+  if (addToHistory && path !== currentPath) navHistory.push(currentPath);
+  currentPath = path;
+  document.getElementById('breadcrumb').textContent = path;
+  document.getElementById('btn-back').disabled = navHistory.length === 0;
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().includes(path.split('/').pop()));
+  });
+  refreshDir();
+}
+
+function goBack() {
+  if (navHistory.length === 0) return;
+  const prev = navHistory.pop();
+  navTo(prev, false);
+}
+
+function goUp() {
+  const parts = currentPath.split('/').filter(Boolean);
+  if (parts.length <= 1) return;
+  parts.pop();
+  navTo('/' + parts.join('/'));
+}
+
+async function refreshDir() {
+  if (!port) { showEmpty(); return; }
+  setStatus(`Listing ${currentPath}...`, '');
+  document.getElementById('breadcrumb').textContent = currentPath;
+
+  const entries = await listDir(currentPath);
+  renderFileList(entries);
+  setStatus(`${entries.length} item(s) in ${currentPath}`, 'green');
+}
+
+function renderFileList(entries) {
+  const tbody = document.getElementById('file-tbody');
+  const table = document.getElementById('file-list');
+  const empty = document.getElementById('empty-state');
+
+  if (entries.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = 'flex';
+    empty.querySelector('h3').textContent = 'Empty folder';
+    empty.querySelector('p').textContent = 'Drop files here to upload them to your Flipper.';
+    empty.querySelector('.big').textContent = '📂';
+    return;
+  }
+
+  table.style.display = 'table';
+  empty.style.display = 'none';
+  tbody.innerHTML = '';
+
+  // Sort: folders first, then files
+  entries.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  for (const entry of entries) {
+    const tr = document.createElement('tr');
+    const icon = entry.type === 'dir' ? '📁' : fileIcon(entry.name);
+    const fullPath = currentPath + '/' + entry.name;
+
+    tr.innerHTML = `
+      <td class="file-name">
+        <span class="file-icon">${icon}</span>
+        ${entry.type === 'dir'
+          ? `<a href="#" onclick="navTo('${fullPath}');return false">${entry.name}</a>`
+          : `<span>${entry.name}</span>`}
+      </td>
+      <td class="file-size">${entry.type === 'dir' ? '—' : fmtSize(entry.size)}</td>
+      <td class="file-size">${entry.type === 'dir' ? 'Folder' : fileType(entry.name)}</td>
+    `;
+
+    tr.addEventListener('contextmenu', e => showCtxMenu(e, entry, fullPath));
+    tr.addEventListener('click', () => {
+      document.querySelectorAll('#file-tbody tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      selectedFile = { entry, fullPath };
+    });
+    tr.addEventListener('dblclick', () => {
+      if (entry.type === 'file') openEditor(fullPath, entry.name);
+      else navTo(fullPath);
+    });
+
+    tbody.appendChild(tr);
+  }
+}
+
+/* ════════════════════════════════════════════
+   UI — DRAG AND DROP
+   ════════════════════════════════════════════ */
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    document.getElementById('drop-zone').classList.remove('drag-over');
+  }
+}
+
+async function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const files = [...e.dataTransfer.files];
+  await handleFiles(files);
+}
+
+function uploadFiles() {
+  document.getElementById('file-input').click();
+}
+
+async function handleFileInput(e) {
+  await handleFiles([...e.target.files]);
+  e.target.value = '';
+}
+
+async function handleFiles(files) {
+  if (!port) {
+    setStatus('Connect Flipper first!', 'red');
+    return;
+  }
+  showTransferPanel();
+  for (const file of files) {
+    const itemId = addTransferItem(file.name);
+    try {
+      const text = await file.text();
+      const remotePath = currentPath + '/' + file.name;
+      const ok = await uploadFileToFlipper(remotePath, text);
+      updateTransferItem(itemId, ok ? 'ok' : 'err', ok ? '100%' : 'Error');
+      if (ok) setStatus(`Uploaded: ${file.name}`, 'green');
+    } catch (err) {
+      updateTransferItem(itemId, 'err', 'Error');
+      setStatus(`Failed: ${file.name} — ${err.message}`, 'red');
+    }
+  }
+  await refreshDir();
+}
+
+/* ════════════════════════════════════════════
+   UI — CONTEXT MENU
+   ════════════════════════════════════════════ */
+
+let ctxTarget = null;
+
+function showCtxMenu(e, entry, fullPath) {
+  e.preventDefault();
+  ctxTarget = { entry, fullPath };
+  const menu = document.getElementById('ctx-menu');
+  menu.style.display = 'block';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('ctx-menu').style.display = 'none';
+});
+
+function ctxOpen() {
+  if (!ctxTarget || ctxTarget.entry.type !== 'file') return;
+  openEditor(ctxTarget.fullPath, ctxTarget.entry.name);
+}
+
+function ctxDownload() {
+  if (!ctxTarget || ctxTarget.entry.type !== 'file') return;
+  downloadFile(ctxTarget.fullPath);
+}
+
+function ctxRename() {
+  if (!ctxTarget) return;
+  renameTarget = ctxTarget;
+  document.getElementById('rename-input').value = ctxTarget.entry.name;
+  openModal('modal-rename');
+}
+
+async function ctxDelete() {
+  if (!ctxTarget) return;
+  if (!confirm(`Delete "${ctxTarget.entry.name}"?`)) return;
+  await deleteEntry(ctxTarget.fullPath);
+  setStatus(`Deleted: ${ctxTarget.entry.name}`, 'green');
+  refreshDir();
+}
+
+/* ════════════════════════════════════════════
+   UI — MODALS
+   ════════════════════════════════════════════ */
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function createNewFile() {
+  document.getElementById('newfile-name').value = '';
+  document.getElementById('newfile-content').value = '';
+  document.getElementById('newfile-content').style.display = 'none';
+  document.getElementById('newfile-type-badge').style.display = 'none';
+  openModal('modal-newfile');
+  setTimeout(() => document.getElementById('newfile-name').focus(), 50);
+}
+
+function createFolder() { createNewFile(); }
+
+function onNewfileNameChange() {
+  const name = document.getElementById('newfile-name').value.trim();
+  const badge = document.getElementById('newfile-type-badge');
+  const label = document.getElementById('newfile-type-label');
+  const textarea = document.getElementById('newfile-content');
+
+  if (!name) {
+    badge.style.display = 'none';
+    textarea.style.display = 'none';
+    return;
+  }
+
+  const isFolder = !name.includes('.');
+  badge.style.display = 'block';
+
+  if (isFolder) {
+    label.textContent = '📁 Folder';
+    label.style.color = 'var(--orange)';
+    textarea.style.display = 'none';
+  } else {
+    const ext = name.split('.').pop().toLowerCase();
+    const typeNames = {
+      txt: 'Text file', sub: 'Sub-GHz file', ir: 'Infrared file',
+      nfc: 'NFC file', rfid: 'RFID file', ibtn: 'iButton file',
+      js: 'JavaScript', py: 'Python script', log: 'Log file',
+    };
+    const typeName = typeNames[ext] || ext.toUpperCase() + ' file';
+    label.textContent = fileIcon(name) + ' ' + typeName;
+    label.style.color = 'var(--blue)';
+    textarea.style.display = 'block';
+    textarea.placeholder = ext === 'txt' ? 'Type your text here...'
+      : ext === 'sub' ? 'Filetype: Subghz capture\nVersion: 1\n...'
+      : ext === 'ir' ? 'Filetype: IR signals\nVersion: 1\n...'
+      : 'File content (optional)...';
+  }
+}
+
+async function confirmNewFile() {
+  const name = document.getElementById('newfile-name').value.trim();
+  const content = document.getElementById('newfile-content').value;
+  if (!name) return;
+  closeModal('modal-newfile');
+
+  const isFolder = !name.includes('.');
+  const fullPath = currentPath + '/' + name;
+
+  if (!port) { setStatus('Connect Flipper first!', 'red'); return; }
+
+  if (isFolder) {
+    setStatus(`Creating folder: ${name}...`, '');
+    await mkdirEntry(fullPath);
+    setStatus(`Created folder: ${name}`, 'green');
+  } else {
+    showTransferPanel();
+    const id = addTransferItem(name);
+    const ok = await uploadFileToFlipper(fullPath, content);
+    updateTransferItem(id, ok ? 'ok' : 'err', ok ? 'Done' : 'Error');
+  }
+
+  document.getElementById('newfile-name').value = '';
+  document.getElementById('newfile-content').value = '';
+  refreshDir();
+}
+
+async function confirmRename() {
+  const newName = document.getElementById('rename-input').value.trim();
+  if (!newName || !renameTarget) return;
+  closeModal('modal-rename');
+  const newPath = currentPath + '/' + newName;
+  await renameEntry(renameTarget.fullPath, newPath);
+  setStatus(`Renamed to: ${newName}`, 'green');
+  refreshDir();
+  renameTarget = null;
+}
+
+/* ════════════════════════════════════════════
+   UI — TRANSFERS
+   ════════════════════════════════════════════ */
+
+let transferIdCounter = 0;
+
+function showTransferPanel() {
+  document.getElementById('transfer-panel').classList.add('active');
+}
+
+function addTransferItem(name) {
+  const id = 'tx-' + (++transferIdCounter);
+  const div = document.createElement('div');
+  div.className = 'transfer-item';
+  div.id = id;
+  div.innerHTML = `
+    <span class="file-icon">${fileIcon(name)}</span>
+    <span class="transfer-name">${name}</span>
+    <progress value="0" max="100"></progress>
+    <span class="transfer-status pending">uploading...</span>
+  `;
+  document.getElementById('transfer-list').appendChild(div);
+  return id;
+}
+
+function updateTransferItem(id, status, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelector('.transfer-status').textContent = label;
+  el.querySelector('.transfer-status').className = 'transfer-status ' + status;
+  const prog = el.querySelector('progress');
+  if (prog) prog.value = status === 'ok' ? 100 : 0;
+}
+
+function clearTransfers() {
+  document.getElementById('transfer-list').innerHTML = '';
+  document.getElementById('transfer-panel').classList.remove('active');
+}
+
+/* ════════════════════════════════════════════
+   AI ASSISTANT (calls Anthropic API)
+   ════════════════════════════════════════════ */
+
+async function sendAI() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addAIMsg('user', text);
+
+  const thinking = addAIMsg('ai', '⋯');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are a Flipper Zero expert assistant embedded in a web file manager.
+The user is browsing their Flipper Zero's storage over USB serial.
+Current path: ${currentPath}.
+Help with: file formats (.sub, .ir, .nfc, .rfid, .ibtn, .js, .py, badusb scripts),
+Flipper features, troubleshooting, and writing scripts.
+Keep answers concise and practical. Use code blocks for scripts.`,
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'No response.';
+    thinking.innerHTML = formatAIText(reply);
+  } catch (e) {
+    thinking.textContent = 'API error: ' + e.message;
+  }
+
+  scrollAIToBottom();
+}
+
+function addAIMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = role === 'ai' ? formatAIText(text) : escapeHtml(text);
+  document.getElementById('ai-messages').appendChild(div);
+  scrollAIToBottom();
+  return div;
+}
+
+function formatAIText(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scrollAIToBottom() {
+  const el = document.getElementById('ai-messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════ */
+
+function setStatus(msg, color) {
+  const el = document.getElementById('status-text');
+  el.textContent = msg;
+  el.style.color = color === 'green' ? 'var(--green)'
+                 : color === 'red' ? 'var(--red)'
+                 : color === 'orange' ? 'var(--orange)'
+                 : 'var(--muted)';
+}
+
+function showEmpty() {
+  document.getElementById('file-list').style.display = 'none';
+  const e = document.getElementById('empty-state');
+  e.style.display = 'flex';
+  e.querySelector('h3').textContent = 'Connect your Flipper Zero';
+  e.querySelector('p').textContent = 'Click Connect Flipper above, then select the serial port.';
+  e.querySelector('.big').textContent = '🐬';
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = {
+    sub: '📡', ir: '🔴', nfc: '📶', rfid: '🏷️', ibtn: '🔑',
+    js: '📜', py: '🐍', txt: '📄', log: '📋',
+    fap: '📦', png: '🖼️', jpg: '🖼️', bmp: '🖼️',
+    wav: '🎵', mp3: '🎵', zip: '🗜️', tar: '🗜️',
+  };
+  return icons[ext] || '📄';
+}
+
+function fileType(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const types = {
+    sub: 'Sub-GHz capture', ir: 'Infrared remote', nfc: 'NFC card',
+    rfid: 'RFID card', ibtn: 'iButton key', js: 'JavaScript',
+    py: 'Python script', txt: 'Text file', log: 'Log file',
+    fap: 'Flipper App', png: 'PNG image', jpg: 'JPEG image',
+    wav: 'WAV audio', zip: 'Archive',
+  };
+  return types[ext] || ext.toUpperCase() + ' file';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ════════════════════════════════════════════
+   TEXT EDITOR
+   ════════════════════════════════════════════ */
+
+let editorPath = null;
+let editorOriginal = '';
+let editorWrap = false;
+
+async function openEditor(path, name) {
+  if (!port) { setStatus('Connect Flipper first!', 'red'); return; }
+
+  setStatus(`Opening ${name}...`, 'orange');
+
+  // Read file content
+  const raw = await runCmd(`storage read ${path}`, 6000);
+  const clean = stripAnsi(raw);
+  const lines = clean.split('\n').filter(l =>
+    !l.includes('storage read') &&
+    !l.match(/^>:?\s*$/) &&
+    !l.match(/^Size:\s*\d+/)
+  );
+  const content = lines.join('\n').trim();
+
+  editorPath = path;
+  editorOriginal = content;
+
+  // Populate modal
+  document.getElementById('editor-filename').textContent = path;
+  document.getElementById('editor-icon').textContent = fileIcon(name);
+  document.getElementById('editor-status').textContent = '';
+  document.getElementById('editor-modified').textContent = '';
+  document.getElementById('btn-save').disabled = true;
+
+  const ta = document.getElementById('editor-textarea');
+  ta.value = content;
+  ta.style.whiteSpace = editorWrap ? 'pre-wrap' : 'pre';
+  ta.style.overflowWrap = editorWrap ? 'break-word' : 'normal';
+  ta.style.overflowX = editorWrap ? 'hidden' : 'auto';
+
+  updateEditorMeta();
+  updateLineNumbers();
+  openModal('modal-editor');
+  setTimeout(() => { ta.focus(); ta.setSelectionRange(0, 0); }, 80);
+  setStatus(`Opened: ${name}`, 'green');
+}
+
+function onEditorInput() {
+  updateEditorMeta();
+  updateLineNumbers();
+  const modified = document.getElementById('editor-textarea').value !== editorOriginal;
+  document.getElementById('editor-modified').textContent = modified ? '● Unsaved changes' : '';
+  document.getElementById('editor-modified').style.color = modified ? 'var(--orange)' : 'var(--muted)';
+  document.getElementById('btn-save').disabled = !modified;
+}
+
+function updateEditorMeta() {
+  const ta = document.getElementById('editor-textarea');
+  const text = ta.value;
+  const lineCount = (text.match(/\n/g) || []).length + 1;
+  document.getElementById('editor-lines-count').textContent = lineCount + ' line' + (lineCount !== 1 ? 's' : '');
+  document.getElementById('editor-chars-count').textContent = text.length + ' chars';
+  updateCursorPos();
+}
+
+function updateCursorPos() {
+  const ta = document.getElementById('editor-textarea');
+  const text = ta.value.substring(0, ta.selectionStart);
+  const lines = text.split('\n');
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  document.getElementById('editor-cursor-pos').textContent = `Ln ${ln}, Col ${col}`;
+}
+
+function updateLineNumbers() {
+  const ta = document.getElementById('editor-textarea');
+  const count = (ta.value.match(/\n/g) || []).length + 1;
+  const linesEl = document.getElementById('editor-lines');
+  let html = '';
+  for (let i = 1; i <= count; i++) html += i + '\n';
+  linesEl.textContent = html;
+}
+
+function syncEditorScroll() {
+  const ta = document.getElementById('editor-textarea');
+  document.getElementById('editor-lines').scrollTop = ta.scrollTop;
+}
+
+function onEditorKeydown(e) {
+  // Tab inserts spaces instead of moving focus
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta = e.target;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + 2;
+    onEditorInput();
+  }
+  // Ctrl/Cmd+S saves
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    editorSave();
+  }
+  updateCursorPos();
+}
+
+function editorWordWrap() {
+  editorWrap = !editorWrap;
+  const ta = document.getElementById('editor-textarea');
+  ta.style.whiteSpace = editorWrap ? 'pre-wrap' : 'pre';
+  ta.style.overflowWrap = editorWrap ? 'break-word' : 'normal';
+  ta.style.overflowX = editorWrap ? 'hidden' : 'auto';
+  document.getElementById('btn-wrap').style.color = editorWrap ? 'var(--orange)' : '';
+}
+
+async function editorSave() {
+  if (!editorPath) return;
+  const content = document.getElementById('editor-textarea').value;
+  const btn = document.getElementById('btn-save');
+  const statusEl = document.getElementById('editor-status');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving...';
+  statusEl.textContent = 'Writing to Flipper...';
+  statusEl.style.color = 'var(--orange)';
+
+  const ok = await uploadFileToFlipper(editorPath, content);
+
+  if (ok) {
+    editorOriginal = content;
+    document.getElementById('editor-modified').textContent = '';
+    statusEl.textContent = '✓ Saved';
+    statusEl.style.color = 'var(--green)';
+    setStatus(`Saved: ${editorPath.split('/').pop()}`, 'green');
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  } else {
+    statusEl.textContent = '✗ Save failed';
+    statusEl.style.color = 'var(--red)';
+    btn.disabled = false;
+  }
+  btn.textContent = '💾 Save to Flipper';
+}
+</script>
+</body>
+</html>
