@@ -44,7 +44,8 @@ git clone https://github.com/TheOnlyCoderMaster/flipmanager.git
 
 ⚠️ Development Transparency
 
-A significant portion of the FlipManager codebase has been assisted using AI tools during development. 
+A significant portion of the FlipManager codebase has been assisted 
+using AI tools during development. 
 However, the project is not purely AI-generated.
 
 Considerable manual effort has gone into:
@@ -55,4 +56,7 @@ Considerable manual effort has gone into:
 * Rewriting and refining code to improve reliability and performance
 * Ensuring compatibility with the Flipper Zero ecosystem
 
-Because AI-generated code can be inconsistent or unreliable, every part of this project has been actively reviewed, modified, and iterated on to ensure it actually works as intended. The final result is a combination of AI-assisted development and significant human debugging, refinement, and problem-solving.
+Because AI-generated code can be inconsistent or unreliable, every part of this project has been actively reviewed, 
+modified, and iterated on to ensure it actually works as intended. The final result is a 
+combination of AI-assisted 
+development and significant human debugging, refinement, and problem-solving.
